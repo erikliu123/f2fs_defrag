@@ -1,0 +1,1 @@
+cmd_/home/peter/Desktop/f2fs/force_rmmod/force_rmmod.ko := ld -r -m elf_x86_64 -z max-page-size=0x200000 -T ./scripts/module-common.lds --build-id  -o /home/peter/Desktop/f2fs/force_rmmod/force_rmmod.ko /home/peter/Desktop/f2fs/force_rmmod/force_rmmod.o /home/peter/Desktop/f2fs/force_rmmod/force_rmmod.mod.o ;  true
