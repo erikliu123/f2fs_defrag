@@ -10,7 +10,7 @@ f2fs-$(CONFIG_F2FS_IO_TRACE) += trace.o
 KERNELDIR:=/usr/src/linux-headers-4.15.0-29deepin-generic
 #PWD:=`cd $(dirname $0); pwd -P`
 PWD:=`pwd`
-
+#CFLAGS:=-w
 default:
 	make -C $(KERNELDIR) M=$(PWD) modules
 clean:

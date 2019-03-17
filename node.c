@@ -507,7 +507,7 @@ pgoff_t get_next_page_offset(struct dnode_of_data *dn, pgoff_t pgofs)
  * The maximum depth is four.
  * Offset[0] will have raw inode offset.
  */
-static int get_node_path(struct inode *inode, long block,
+ int get_node_path(struct inode *inode, long block,
 				int offset[4], unsigned int noffset[4])
 {
 	const long direct_index = ADDRS_PER_INODE(inode);

@@ -1,0 +1,15 @@
+{
+    "files.associations": {
+        "sched.h": "c",
+        "f2fs.h": "c",
+        "types.h": "c",
+        "fs.h": "c",
+        "module.h": "c",
+        "segment.h": "c",
+        "gc.h": "c",
+        "xattr.h": "c",
+        "node.h": "c"
+    },
+    "C_Cpp.intelliSenseEngineFallback": "Disabled",
+    "C_Cpp.errorSquiggles": "Disabled"
+}

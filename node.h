@@ -73,6 +73,9 @@ struct nat_entry {
 
 #define inc_node_version(version)	(++(version))
 
+ int get_node_path(struct inode *inode, long block,
+				int offset[4], unsigned int noffset[4]);
+				
 static inline void copy_node_info(struct node_info *dst,
 						struct node_info *src)
 {

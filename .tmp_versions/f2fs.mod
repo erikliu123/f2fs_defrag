@@ -1,0 +1,3 @@
+/home/peter/Desktop/f2fs/f2fs.ko
+/home/peter/Desktop/f2fs/dir.o /home/peter/Desktop/f2fs/file.o /home/peter/Desktop/f2fs/inode.o /home/peter/Desktop/f2fs/namei.o /home/peter/Desktop/f2fs/hash.o /home/peter/Desktop/f2fs/super.o /home/peter/Desktop/f2fs/inline.o /home/peter/Desktop/f2fs/checkpoint.o /home/peter/Desktop/f2fs/gc.o /home/peter/Desktop/f2fs/data.o /home/peter/Desktop/f2fs/node.o /home/peter/Desktop/f2fs/segment.o /home/peter/Desktop/f2fs/recovery.o /home/peter/Desktop/f2fs/shrinker.o /home/peter/Desktop/f2fs/extent_cache.o /home/peter/Desktop/f2fs/sysfs.o /home/peter/Desktop/f2fs/debug.o /home/peter/Desktop/f2fs/xattr.o /home/peter/Desktop/f2fs/acl.o
+

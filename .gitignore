@@ -1,0 +1,8 @@
+*.o
+!*.c
+!*.h
+*.cmd
+force_rmmod/Module*
+force_rmmod/*.ko
+force_rmmod/.o
+*.wav

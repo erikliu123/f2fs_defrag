@@ -2680,21 +2680,46 @@ static int f2fs_ioc_fssetxattr(struct file *filp, unsigned long arg)
 
 	return 0;
 }
-long printk_file(struct file *filp){
+long printk_nid_path(struct file *filp, unsigned long arg){//arg传 文件偏移的参数
+	int offset[4];
+	unsigned int noffset[4];
+	nid_t nids[4];
+	int level, i = 0;
+	int err = 0;
+	int *temp=arg;
+	int index=temp[0];
+	level = get_node_path(file_inode(filp), index, offset, noffset);
+	for(i=0;i<level;++i){
+		printk("inode=%d, node[%d]=%d, noffset[%d]=%d\n",file_inode(filp), i,
+		offset[i],i,noffset[i]);
+	}
+	return 0;
+}
+long printk_file(struct file *filp, unsigned long arg){
     struct inode *inode = file_inode(filp);
 	struct f2fs_inode_info *fi = F2FS_I(inode);
     int isize=inode->i_size;
-   
+    int *s=arg;
     int index=0;
 	struct dnode_of_data dn;
-	//struct page *page;
-	set_new_dnode(&dn, inode, NULL, NULL, 0);
-	 get_dnode_of_data(&dn, index, LOOKUP_NODE);
-	  printk("inode=%d, inodesize=%d node_page=%x\n",inode->i_ino,isize,dn.node_page);
-    for (index = 0; index < isize/4096; index++, dn.ofs_in_node++) {
+	struct page *page;
+	page=get_node_page(F2FS_I_SB(inode), inode->i_ino);
+	struct f2fs_node *nodes=F2FS_NODE(page);//f2fs_inode 在内存的位置
+	printk("page address=%x\n",page);
+	for (index = 0; index<923;++index){
+		printk("inode=%d, index=%d, block=%d\n",inode->i_ino, index,nodes->i.i_addr[index]);
+
+	}
+	for (index = 0; index<5;++index){
+		printk("inode=%d, direct block=%d, NAT=%d\n",inode->i_ino, index,nodes->i.i_nid[index]);
+	}
+	set_new_dnode(&dn, inode, page, page, 0);//找对inode page和node page的位置即可
+	get_dnode_of_data(&dn, index, LOOKUP_NODE);
+	printk("inode=%d, inodesize=%d node_page=%x\n",inode->i_ino,isize,dn.node_page);
+    for (index = 0; index < isize/4096 && index<923; index++, dn.ofs_in_node++) {
         dn.data_blkaddr = datablock_addr(dn.inode,
                     dn.node_page, dn.ofs_in_node);
-		printk("inode=%d, index=%d, blkaddr=%d\n",dn.inode->i_ino, index, dn.data_blkaddr);
+		printk("inode=%d, index=%d, blkaddr=%x\n",dn.inode->i_ino, index, dn.data_blkaddr);
       /*
 	    struct extent_info ei = {0,0,0};
 	    int err;
@@ -2730,7 +2755,9 @@ long f2fs_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 
 	switch (cmd) {
     case 0xf8f8:
-        return printk_file(filp);
+        return printk_file(filp,arg);
+	case 0xf8f9:
+		return printk_nid_path(filp,arg);
 /*long f2fs_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	if (unlikely(f2fs_cp_error(F2FS_I_SB(file_inode(filp)))))
