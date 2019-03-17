@@ -2688,9 +2688,12 @@ long printk_nid_path(struct file *filp, unsigned long arg){//arg传 文件偏移
 	int err = 0;
 	int *temp=arg;
 	int index=temp[0];
+
+	printk("when arg=%d\n",index);
 	level = get_node_path(file_inode(filp), index, offset, noffset);
-	for(i=0;i<level;++i){
-		printk("inode=%d, node[%d]=%d, noffset[%d]=%d\n",file_inode(filp), i,
+	/*间接节点也算入计数了！*/
+	for(i=0;i<=level;++i){
+		printk("inode=%d, offset[%d]=%d, noffset[%d]=%d\n",file_inode(filp), i,
 		offset[i],i,noffset[i]);
 	}
 	return 0;
@@ -2698,29 +2701,37 @@ long printk_nid_path(struct file *filp, unsigned long arg){//arg传 文件偏移
 long printk_file(struct file *filp, unsigned long arg){
     struct inode *inode = file_inode(filp);
 	struct f2fs_inode_info *fi = F2FS_I(inode);
-    int isize=inode->i_size;
+    int isize=inode->i_size;	//文件大小
     int *s=arg;
     int index=0;
 	struct dnode_of_data dn;
 	struct page *page;
+	int begins=s[0],ends=s[1];
 	page=get_node_page(F2FS_I_SB(inode), inode->i_ino);
 	struct f2fs_node *nodes=F2FS_NODE(page);//f2fs_inode 在内存的位置
-	printk("page address=%x\n",page);
+	printk("begin=%d, end=%d\npage address=%x\n",begins, ends, page);
+	/*
+	//用于测试get_dnode_of_data的正确性
 	for (index = 0; index<923;++index){
 		printk("inode=%d, index=%d, block=%d\n",inode->i_ino, index,nodes->i.i_addr[index]);
 
 	}
+	*/
 	for (index = 0; index<5;++index){
-		printk("inode=%d, direct block=%d, NAT=%d\n",inode->i_ino, index,nodes->i.i_nid[index]);
+		printk("direct inode=%d, direct block=%d, NAT=%d\n",inode->i_ino, index,nodes->i.i_nid[index]);
 	}
-	set_new_dnode(&dn, inode, page, page, 0);//找对inode page和node page的位置即可
+	set_new_dnode(&dn, inode, page, page, 0);//找对inode page和node page的位置即可，nid=0是因为不知道？
 	get_dnode_of_data(&dn, index, LOOKUP_NODE);
 	printk("inode=%d, inodesize=%d node_page=%x\n",inode->i_ino,isize,dn.node_page);
-    for (index = 0; index < isize/4096 && index<923; index++, dn.ofs_in_node++) {
-        dn.data_blkaddr = datablock_addr(dn.inode,
-                    dn.node_page, dn.ofs_in_node);
-		printk("inode=%d, index=%d, blkaddr=%x\n",dn.inode->i_ino, index, dn.data_blkaddr);
-      /*
+    f2fs_put_dnode(&dn);//没有会卡死
+	for (index = begins; index < isize/4096 && index<ends; index++) {
+		page=get_node_page(F2FS_I_SB(inode), inode->i_ino);
+		set_new_dnode(&dn, inode, page, page, 0);//找对inode page和node page的位置即可，nid=0是因为不知道？
+		get_dnode_of_data(&dn, index, LOOKUP_NODE_RA);//dn.ofs_in_node++没必要，因为已经在这个函数内被修改
+        //dn.data_blkaddr = datablock_addr(dn.inode, dn.node_page, dn.ofs_in_node);  //useless
+		printk("inode=%d, index=%d, blkaddr=%d\n",dn.inode->i_ino, index, dn.data_blkaddr);
+		f2fs_put_dnode(&dn);//没有会卡死
+	  /*
 	    struct extent_info ei = {0,0,0};
 	    int err;
 
@@ -2746,7 +2757,7 @@ long printk_file(struct file *filp, unsigned long arg){
 	    	
 	    f2fs_put_dnode(&dn);*/
     }
-	f2fs_put_dnode(&dn);
+
 }
 long f2fs_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {

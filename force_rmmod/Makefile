@@ -12,7 +12,6 @@ clean:
 	rm -rf .*.cmd *.o *.mod.c *.ko .tmp_versions
 #	$(MAKE) -C $(KDIR) M=$(PWD) clean
 endif
-
 sudo insmod force_rmmod.ko modname=f2fs
 #  查看是否加载成功, `exit` 函数是否正常替换
 dmesg | tail -l

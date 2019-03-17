@@ -621,16 +621,16 @@ int get_dnode_of_data(struct dnode_of_data *dn, pgoff_t index, int mode)
 	parent = npage[0];
 	if (level != 0)
 		nids[1] = get_nid(parent, offset[0], true);
-	dn->inode_page = npage[0];
+	dn->inode_page = npage[0];//得到inode页
 	dn->inode_page_locked = true;
 
 	/* get indirect or direct nodes */
 	for (i = 1; i <= level; i++) {
-		bool done = false;
+		bool done = false;//done 只在分配（ALLOC）node时有作用！
 
 		if (!nids[i] && mode == ALLOC_NODE) {
 			/* alloc new node */
-			if (!alloc_nid(sbi, &(nids[i]))) {
+			if (!alloc_nid(sbi, &(nids[i]))) {//分配到nid号码
 				err = -ENOSPC;
 				goto release_pages;
 			}
@@ -643,7 +643,7 @@ int get_dnode_of_data(struct dnode_of_data *dn, pgoff_t index, int mode)
 				goto release_pages;
 			}
 
-			set_nid(parent, offset[i - 1], nids[i], i == 1);
+			set_nid(parent, offset[i - 1], nids[i], i == 1);//inode的
 			alloc_nid_done(sbi, nids[i]);
 			done = true;
 		} else if (mode == LOOKUP_NODE_RA && i == level && level > 1) {
@@ -2026,7 +2026,7 @@ static void __build_free_nids(struct f2fs_sb_info *sbi, bool sync, bool mount)
 		/* try to find free nids in free_nid_bitmap */
 		scan_free_nid_bits(sbi);
 
-		if (nm_i->nid_cnt[FREE_NID] >= NAT_ENTRY_PER_BLOCK)
+		if (nm_i->nid_cnt[FREE_NID] >= NAT_ENTRY_PER_BLOCK)//冗余代码？？
 			return;
 	}
 
@@ -2655,19 +2655,20 @@ static int init_node_manager(struct f2fs_sb_info *sbi)
 	nm_i->nat_blkaddr = le32_to_cpu(sb_raw->nat_blkaddr);
 
 	/* segment_count_nat includes pair segment so divide to 2. */
-	nat_segs = le32_to_cpu(sb_raw->segment_count_nat) >> 1;
-	nm_i->nat_blocks = nat_segs << le32_to_cpu(sb_raw->log_blocks_per_seg);
+	nat_segs = le32_to_cpu(sb_raw->segment_count_nat) >> 1;//node成对出现？
+
+	nm_i->nat_blocks = nat_segs << le32_to_cpu(sb_raw->log_blocks_per_seg);//NAT 块的数目
 	nm_i->max_nid = NAT_ENTRY_PER_BLOCK * nm_i->nat_blocks;
 
 	/* not used nids: 0, node, meta, (and root counted as valid node) */
 	nm_i->available_nids = nm_i->max_nid - sbi->total_valid_node_count -
 							F2FS_RESERVED_NODE_NUM;
-	nm_i->nid_cnt[FREE_NID] = 0;
-	nm_i->nid_cnt[PREALLOC_NID] = 0;
+	nm_i->nid_cnt[FREE_NID] = 0;//
+	nm_i->nid_cnt[PREALLOC_NID] = 0;//预分配NID的个数
 	nm_i->nat_cnt = 0;
 	nm_i->ram_thresh = DEF_RAM_THRESHOLD;
 	nm_i->ra_nid_pages = DEF_RA_NID_PAGES;
-	nm_i->dirty_nats_ratio = DEF_DIRTY_NAT_RATIO_THRESHOLD;
+	nm_i->dirty_nats_ratio = DEF_DIRTY_NAT_RATIO_THRESHOLD; //10%，貌似没啥用处
 
 	INIT_RADIX_TREE(&nm_i->free_nid_root, GFP_ATOMIC);
 	INIT_LIST_HEAD(&nm_i->free_nid_list);
