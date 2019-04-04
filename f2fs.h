@@ -2059,7 +2059,7 @@ static inline void f2fs_change_bit(unsigned int nr, char *addr)
 	int mask;
 
 	addr += (nr >> 3);
-	mask = 1 << (7 - (nr & 0x07));
+	mask = 1 << (7 - (nr & 0x07));//第0位对应最高位
 	*addr ^= mask;
 }
 
@@ -2756,6 +2756,9 @@ int f2fs_migrate_page(struct address_space *mapping, struct page *newpage,
 /*
  * gc.c
  */
+int __init init_gc_caches(void);
+void destroy_gc_caches(void);
+
 int start_gc_thread(struct f2fs_sb_info *sbi);
 void stop_gc_thread(struct f2fs_sb_info *sbi);
 block_t start_bidx_of_node(unsigned int node_ofs, struct inode *inode);

@@ -2669,14 +2669,16 @@ void write_data_page(struct dnode_of_data *dn, struct f2fs_io_info *fio)
 
 	f2fs_bug_on(sbi, dn->data_blkaddr == NULL_ADDR);
 	get_node_info(sbi, dn->nid, &ni);
-	set_summary(&sum, dn->nid, dn->ofs_in_node, ni.version);
-	do_write_page(&sum, fio);
+	set_summary(&sum, dn->nid, dn->ofs_in_node, ni.version);//先写summary 页，
+	do_write_page(&sum, fio);//FIO对应的新数据块地址找到
+	//	allocate_data_block(fio->sbi, fio->page, fio->old_blkaddr,
+	//		&fio->new_blkaddr, sum, type, fio, true);
 	f2fs_update_data_blkaddr(dn, fio->new_blkaddr);
 
-	f2fs_update_iostat(sbi, fio->io_type, F2FS_BLKSIZE);
+	f2fs_update_iostat(sbi, fio->io_type, F2FS_BLKSIZE);//统计BUFFER/DIRECT IO的大小
 }
 
-int rewrite_data_page(struct f2fs_io_info *fio)
+int rewrite_data_page(struct f2fs_io_info *fio)//原地跟新
 {
 	int err;
 

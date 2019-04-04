@@ -2,7 +2,7 @@
 echo 1 >  /sys/kernel/debug/tracing/tracing_on
 echo 1 >  /sys/kernel/debug/tracing/events/f2fs/enable 
 set var="sda8"
-make clean
+#make clean
 make
 umount /dev/$var
 rmmod f2fs

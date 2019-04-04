@@ -39,11 +39,22 @@ struct f2fs_gc_kthread {
 	unsigned int gc_wake;
 };
 
-struct gc_inode_list {
+struct gc_inode_list {		//
 	struct list_head ilist;
 	struct radix_tree_root iroot;
 };
-
+struct segment_record{/*第二层*/
+	int off_in_seg;
+	int bidx;
+	struct list_head blist;//下一个block块
+} ;
+struct gc_sort{
+	int ino;
+	struct list_head ilist;//下一个inode
+	struct list_head blklist;//第一个block块
+};
+//int __init init_gc_caches();
+//void destroy_gc_caches(void);
 /*
  * inline functions
  */

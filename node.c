@@ -237,6 +237,12 @@ static void __clear_nat_cache_dirty(struct f2fs_nm_info *nm_i,
 static unsigned int __gang_lookup_nat_set(struct f2fs_nm_info *nm_i,
 		nid_t start, unsigned int nr, struct nat_entry_set **ep)
 {
+	/*在树中查找指定键值的条目，查找成功，返回该条目的指针，否则，返回NULL*/
+	//void *radix_tree_lookup(struct radix_tree_root *root, unsigned long index);
+	/*返回指向slot的指针，该slot含有指向查找到条目的指针*/
+	//void **radix_tree_lookup_slot(struct radix_tree_root *root, unsigned long index);
+	/*多键值查找，max_items为需要查找的item个数，results表示查询结果。查询时键值索引从first_index开始*/
+	//radix_tree_gang_lookup(struct radix_tree_root *root, void **results, unsigned long first_index, unsigned int max_items);
 	return radix_tree_gang_lookup(&nm_i->nat_set_root, (void **)ep,
 							start, nr);
 }
@@ -2406,13 +2412,13 @@ static void __adjust_nat_entry_set(struct nat_entry_set *nes,
 		goto add_out;
 
 	list_for_each_entry(cur, head, set_list) {
-		if (cur->entry_cnt >= nes->entry_cnt) {
+		if (cur->entry_cnt >= nes->entry_cnt) {//head指出来的list应该是根据entry_cnt由小到大排列的
 			list_add(&nes->set_list, cur->set_list.prev);
 			return;
 		}
 	}
 add_out:
-	list_add_tail(&nes->set_list, head);
+	list_add_tail(&nes->set_list, head);//表示当前entry_cnt最大的一个集合被加到
 }
 
 static void __update_nat_bits(struct f2fs_sb_info *sbi, nid_t start_nid,
@@ -2531,7 +2537,7 @@ void flush_nat_entries(struct f2fs_sb_info *sbi, struct cp_control *cpc)
 	struct f2fs_nm_info *nm_i = NM_I(sbi);
 	struct curseg_info *curseg = CURSEG_I(sbi, CURSEG_HOT_DATA);
 	struct f2fs_journal *journal = curseg->journal;
-	struct nat_entry_set *setvec[SETVEC_SIZE];
+	struct nat_entry_set *setvec[SETVEC_SIZE];//32
 	struct nat_entry_set *set, *tmp;
 	unsigned int found;
 	nid_t set_idx = 0;
@@ -2550,6 +2556,9 @@ void flush_nat_entries(struct f2fs_sb_info *sbi, struct cp_control *cpc)
 	if (enabled_nat_bits(sbi, cpc) ||
 		!__has_cursum_space(journal, nm_i->dirty_nat_cnt, NAT_JOURNAL))
 		remove_nats_in_journal(sbi);
+
+	/*多键值查找，max_items为需要查找的item个数，results表示查询结果。查询时键值索引从first_index开始*/
+	//radix_tree_gang_lookup(struct radix_tree_root *root, void **results, unsigned long first_index, unsigned int max_items);
 
 	while ((found = __gang_lookup_nat_set(nm_i,
 					set_idx, SETVEC_SIZE, setvec))) {

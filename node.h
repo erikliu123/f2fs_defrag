@@ -219,7 +219,7 @@ static inline pgoff_t next_nat_addr(struct f2fs_sb_info *sbi,
 	struct f2fs_nm_info *nm_i = NM_I(sbi);
 
 	block_addr -= nm_i->nat_blkaddr;
-	block_addr ^= 1 << sbi->log_blocks_per_seg;
+	block_addr ^= 1 << sbi->log_blocks_per_seg;//每个NAT BLOCK都有备份，如果一个是segno(2的倍数),则另一个segno+1
 	return block_addr + nm_i->nat_blkaddr;
 }
 

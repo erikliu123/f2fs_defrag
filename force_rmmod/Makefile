@@ -12,11 +12,10 @@ clean:
 	rm -rf .*.cmd *.o *.mod.c *.ko .tmp_versions
 #	$(MAKE) -C $(KDIR) M=$(PWD) clean
 endif
-sudo insmod force_rmmod.ko modname=f2fs
+insmod force_rmmod.ko modname=f2fs
 #  查看是否加载成功, `exit` 函数是否正常替换
 dmesg | tail -l
 #  卸载 `createoops` 驱动
 sudo rmmod f2fs
 #  卸载 `force_rmmod` 驱动
 sudo rmmod force_rmmod
-

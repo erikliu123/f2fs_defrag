@@ -504,7 +504,7 @@ static int f2fs_submit_page_read(struct inode *inode, struct page *page,
 	return 0;
 }
 
-static void __set_data_blkaddr(struct dnode_of_data *dn)
+static void __set_data_blkaddr(struct dnode_of_data *dn)//inode结点或者直接结点
 {
 	struct f2fs_node *rn = F2FS_NODE(dn->node_page);
 	__le32 *addr_array;
@@ -535,7 +535,7 @@ void set_data_blkaddr(struct dnode_of_data *dn)
 void f2fs_update_data_blkaddr(struct dnode_of_data *dn, block_t blkaddr)
 {
 	dn->data_blkaddr = blkaddr;
-	set_data_blkaddr(dn);
+	set_data_blkaddr(dn);//NODE page需要回写
 	f2fs_update_extent_cache(dn);
 }
 
@@ -562,7 +562,7 @@ int reserve_new_blocks(struct dnode_of_data *dn, blkcnt_t count)
 		block_t blkaddr = datablock_addr(dn->inode,
 					dn->node_page, dn->ofs_in_node);
 		if (blkaddr == NULL_ADDR) {
-			dn->data_blkaddr = NEW_ADDR;
+			dn->data_blkaddr = NEW_ADDR;// -1，假装分配了块
 			__set_data_blkaddr(dn);
 			count--;
 		}
@@ -579,7 +579,7 @@ int reserve_new_block(struct dnode_of_data *dn)
 	unsigned int ofs_in_node = dn->ofs_in_node;
 	int ret;
 
-	ret = reserve_new_blocks(dn, 1);
+	ret = reserve_new_blocks(dn, 1);//循环过程中会改变ofs_in_node
 	dn->ofs_in_node = ofs_in_node;
 	return ret;
 }
@@ -1410,7 +1410,7 @@ int do_write_data_page(struct f2fs_io_info *fio)
 
 	set_new_dnode(&dn, inode, NULL, NULL, 0);
 	if (need_inplace_update(fio) &&
-			f2fs_lookup_extent_cache(inode, page->index, &ei)) {
+			f2fs_lookup_extent_cache(inode, page->index, &ei)) {//就地更新
 		fio->old_blkaddr = ei.blk + page->index - ei.fofs;
 
 		if (valid_ipu_blkaddr(fio)) {
@@ -1440,7 +1440,7 @@ got_it:
 	 * If current allocation needs SSR,
 	 * it had better in-place writes for updated data.
 	 */
-	if (ipu_force || (valid_ipu_blkaddr(fio) && need_inplace_update(fio))) {
+	if (ipu_force || (valid_ipu_blkaddr(fio) && need_inplace_update(fio))) {//结束判断后会结束
 		err = encrypt_one_page(fio);
 		if (err)
 			goto out_writepage;
@@ -1449,7 +1449,7 @@ got_it:
 		f2fs_put_dnode(&dn);
 		if (fio->need_lock == LOCK_REQ)
 			f2fs_unlock_op(fio->sbi);
-		err = rewrite_data_page(fio);
+		err = rewrite_data_page(fio);//就地更新 newaddr=oldaddr
 		trace_f2fs_do_write_data_page(fio->page, IPU);
 		set_inode_flag(inode, FI_UPDATE_WRITE);
 		return err;

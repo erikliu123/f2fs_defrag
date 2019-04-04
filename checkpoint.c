@@ -877,7 +877,7 @@ static void __add_dirty_inode(struct inode *inode, enum inode_type type)
 	stat_inc_dirty_inode(sbi, type);
 }
 
-static void __remove_dirty_inode(struct inode *inode, enum inode_type type)
+static void __remove_dirty_inode(struct inode *inode, enum inode_type type)//从F2FS的脏inode列表中删除
 {
 	int flag = (type == DIR_INODE) ? FI_DIRTY_DIR : FI_DIRTY_FILE;
 

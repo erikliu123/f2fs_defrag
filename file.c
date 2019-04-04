@@ -2448,7 +2448,7 @@ static int f2fs_ioc_flush_device(struct file *filp, unsigned long arg)
 		return ret;
 
 	if (range.dev_num != 0)
-		dev_start_segno = GET_SEGNO(sbi, FDEV(range.dev_num).start_blk);
+		dev_start_segno = GET_SEGNO(sbi, FDEV(range.dev_num).start_blk);//得到设备的起始块对应的段号
 	dev_end_segno = GET_SEGNO(sbi, FDEV(range.dev_num).end_blk);
 
 	start_segno = sm->last_victim[FLUSH_DEVICE];

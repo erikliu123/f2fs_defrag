@@ -2848,6 +2848,10 @@ static int __init init_f2fs_fs(void)
 	err = create_extent_cache();
 	if (err)
 		goto free_checkpoint_caches;
+	err=init_gc_caches();
+	if(err)
+		goto free_gc_caches;
+
 	err = f2fs_init_sysfs();
 	if (err)
 		goto free_extent_cache;
@@ -2860,6 +2864,7 @@ static int __init init_f2fs_fs(void)
 	err = f2fs_create_root_stats();
 	if (err)
 		goto free_filesystem;
+
 	return 0;
 
 free_filesystem:
@@ -2868,6 +2873,8 @@ free_shrinker:
 	unregister_shrinker(&f2fs_shrinker_info);
 free_sysfs:
 	f2fs_exit_sysfs();
+free_gc_caches:
+	destroy_gc_caches();
 free_extent_cache:
 	destroy_extent_cache();
 free_checkpoint_caches:
@@ -2892,6 +2899,7 @@ static void __exit exit_f2fs_fs(void)
 	destroy_checkpoint_caches();
 	destroy_segment_manager_caches();
 	destroy_node_manager_caches();
+	destroy_gc_caches();
 	destroy_inodecache();
 	f2fs_destroy_trace_ios();
 }

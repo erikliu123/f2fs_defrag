@@ -535,7 +535,7 @@ static inline bool has_not_enough_free_secs(struct f2fs_sb_info *sbi,
 		return false;
 
 	if (free_sections(sbi) + freed == reserved_sections(sbi) + needed &&
-			has_curseg_enough_space(sbi))
+			has_curseg_enough_space(sbi))//free_sections(sbi)=reserved_sections(sbi) 且sbi当前有足够的空间
 		return false;
 	return (free_sections(sbi) + freed) <=
 		(node_secs + 2 * dent_secs + imeta_secs +

@@ -6,7 +6,7 @@ int fd;
 int main(int argc, char **argv){
 	
 	if(argc<4){
-		printf("参数过少\n");
+		printf("参数过少,需要[文件] [起始偏移块（4K）] [结束偏移块（4K）]\n");
 		return 0;	
 	}
 	fd=open(argv[1],0);//"/mnt/fs/ics2018"
