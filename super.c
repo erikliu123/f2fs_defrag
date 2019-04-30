@@ -2700,7 +2700,11 @@ skip_recovery:
 		err = start_gc_thread(sbi);
 		if (err)
 			goto free_meta;
+		
 	}
+	err=start_latent_alloc_thread(sbi);//不严谨，TODO
+	if (err)
+		goto free_meta;
 	kfree(options);
 
 	/* recover broken superblock */
@@ -2793,7 +2797,9 @@ static void kill_f2fs_super(struct super_block *sb)
 	if (sb->s_root) {
 		set_sbi_flag(F2FS_SB(sb), SBI_IS_CLOSE);
 		stop_gc_thread(F2FS_SB(sb));
+		
 		stop_discard_thread(F2FS_SB(sb));
+		stop_latent_alloc_thread(F2FS_SB(sb));
 	}
 	kill_block_super(sb);
 }
@@ -2855,6 +2861,10 @@ static int __init init_f2fs_fs(void)
 	err = f2fs_init_sysfs();
 	if (err)
 		goto free_extent_cache;
+	err=init_latent_alloc_caches();
+	if (err)
+		goto free_latent_alloc_cache;
+
 	err = register_shrinker(&f2fs_shrinker_info);
 	if (err)
 		goto free_sysfs;
@@ -2864,15 +2874,19 @@ static int __init init_f2fs_fs(void)
 	err = f2fs_create_root_stats();
 	if (err)
 		goto free_filesystem;
+	
 
 	return 0;
 
+	
 free_filesystem:
 	unregister_filesystem(&f2fs_fs_type);
 free_shrinker:
 	unregister_shrinker(&f2fs_shrinker_info);
 free_sysfs:
 	f2fs_exit_sysfs();
+free_latent_alloc_cache:
+	destroy_latent_alloc_caches();
 free_gc_caches:
 	destroy_gc_caches();
 free_extent_cache:

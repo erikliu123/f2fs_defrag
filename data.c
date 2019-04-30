@@ -25,6 +25,7 @@
 #include <linux/sched/signal.h>
 
 #include "f2fs.h"
+#include "data.h"
 #include "node.h"
 #include "segment.h"
 #include "trace.h"
@@ -783,7 +784,7 @@ got_it:
 	return page;
 }
 
-static int __allocate_data_block(struct dnode_of_data *dn)
+static int __allocate_data_block(struct dnode_of_data *dn)		//只有WARM DATA分配
 {
 	struct f2fs_sb_info *sbi = F2FS_I_SB(dn->inode);
 	struct f2fs_summary sum;
@@ -813,8 +814,8 @@ alloc:
 
 	/* update i_size */
 	fofs = start_bidx_of_node(ofs_of_node(dn->node_page), dn->inode) +
-							dn->ofs_in_node;
-	if (i_size_read(dn->inode) < ((loff_t)(fofs + 1) << PAGE_SHIFT))
+							dn->ofs_in_node; 
+	if (i_size_read(dn->inode) < ((loff_t)(fofs + 1) << PAGE_SHIFT)) //文件size变大，更新inode isize
 		f2fs_i_size_write(dn->inode,
 				((loff_t)(fofs + 1) << PAGE_SHIFT));
 	return 0;
@@ -1543,7 +1544,7 @@ write:
 	}
 
 	/* Dentry blocks are controlled by checkpoint */
-	if (S_ISDIR(inode->i_mode)) {
+	if (S_ISDIR(inode->i_mode)) {//目录文件
 		fio.need_lock = LOCK_DONE;
 		err = do_write_data_page(&fio);
 		goto done;
@@ -1564,7 +1565,7 @@ write:
 	}
 
 	if (err == -EAGAIN) {
-		err = do_write_data_page(&fio);
+		err = do_write_data_page(&fio);//普通文件的路径
 		if (err == -EAGAIN) {
 			fio.need_lock = LOCK_REQ;
 			err = do_write_data_page(&fio);
@@ -1592,7 +1593,7 @@ out:
 		submitted = NULL;
 	}
 
-	unlock_page(page);
+	unlock_page(page);//这个函数没有加锁lock_page
 	if (!S_ISDIR(inode->i_mode))
 		f2fs_balance_fs(sbi, need_balance_fs);
 
@@ -1620,11 +1621,28 @@ static int f2fs_write_data_page(struct page *page,
 	return __write_data_page(page, NULL, wbc, FS_DATA_IO);
 }
 
+
+
 /*
  * This function was copied from write_cche_pages from mm/page-writeback.c.
  * The major change is making write step of cold data page separately from
  * warm/hot data page.
  */
+//5.0版本
+/*
+static int f2fs_write_cache_pages(struct address_space *mapping,
+					struct writeback_control *wbc)
+*/
+ //#include <sys/time.h>
+/*
+ * Structure used in select() call, taken from the BSD file sys/time.h.
+ */
+
+// struct timeval {
+//         long    tv_sec;         /* seconds */
+//         long    tv_usec;        /* and microseconds */
+// };
+#if 0
 static int f2fs_write_cache_pages(struct address_space *mapping,
 					struct writeback_control *wbc,
 					enum iostat_type io_type)
@@ -1641,9 +1659,16 @@ static int f2fs_write_cache_pages(struct address_space *mapping,
 	int cycled;
 	int range_whole = 0;
 	int tag;
-
+	struct timeval tv;
+	//struct timezone tz;
+	if (ret < 0)
+	{
+	//perror("gettimeofday");
+	return -1;
+	}
+	 do_gettimeofday(&tv);
+	printk("seconde: %ld.\n", tv.tv_sec);
 	pagevec_init(&pvec);
-
 	if (get_dirty_pages(mapping->host) <=
 				SM_I(F2FS_M_SB(mapping))->min_hot_blocks)
 		set_inode_flag(mapping->host, FI_HOT_DATA);
@@ -1767,6 +1792,170 @@ continue_unlock:
 	return ret;
 }
 
+#else
+
+static int f2fs_write_cache_pages(struct address_space *mapping,
+					struct writeback_control *wbc,
+					enum iostat_type io_type)
+{
+	int ret = 0;
+	int done = 0;
+	struct pagevec pvec;
+	int nr_pages;
+	pgoff_t uninitialized_var(writeback_index);
+	pgoff_t index;
+	pgoff_t end;		/* Inclusive */
+	pgoff_t done_index;
+	pgoff_t last_idx = ULONG_MAX;
+	int cycled;
+	int range_whole = 0;
+	int tag;
+	int nr_write=wbc->nr_to_write;
+	struct writeback_control *newitem;
+	//newitem=kzalloc(sizeof(struct writeback_control),GFP_ATOMIC);
+	//memcpy(newitem)
+	pagevec_init(&pvec);
+
+	if (get_dirty_pages(mapping->host) <=
+				SM_I(F2FS_M_SB(mapping))->min_hot_blocks)
+		set_inode_flag(mapping->host, FI_HOT_DATA);
+	else
+		clear_inode_flag(mapping->host, FI_HOT_DATA);
+
+	if (wbc->range_cyclic) {
+		writeback_index = mapping->writeback_index; /* prev offset */
+		index = writeback_index;
+		if (index == 0)
+			cycled = 1;
+		else
+			cycled = 0;
+		end = -1;
+	} else {
+		index = wbc->range_start >> PAGE_SHIFT;
+		end = wbc->range_end >> PAGE_SHIFT;
+		if (wbc->range_start == 0 && wbc->range_end == LLONG_MAX)
+			range_whole = 1;
+		cycled = 1; /* ignore range_cyclic tests */
+	}
+	if (wbc->sync_mode == WB_SYNC_ALL || wbc->tagged_writepages)
+		tag = PAGECACHE_TAG_TOWRITE;
+	else
+		tag = PAGECACHE_TAG_DIRTY;
+retry:
+	if (wbc->sync_mode == WB_SYNC_ALL || wbc->tagged_writepages)
+		tag_pages_for_writeback(mapping, index, end);
+	done_index = index;
+	while (!done && (index <= end)) {
+		int i;
+
+		nr_pages = pagevec_lookup_range_tag(&pvec, mapping, &index, end,
+				tag);//radix tree组织起来，找到slot数组
+		if (nr_pages == 0)
+			break;
+
+		for (i = 0; i < nr_pages; i++) {
+			struct page *page = pvec.pages[i];
+			bool submitted = false;
+
+			done_index = page->index;
+retry_write:
+			lock_page(page);
+
+			if (unlikely(page->mapping != mapping)) {
+continue_unlock:
+				unlock_page(page);
+				continue;
+			}
+
+			if (!PageDirty(page)) {
+				/* someone wrote it for us */
+				goto continue_unlock;
+			}
+
+			if (PageWriteback(page)) {//fsync不会经过
+				printk("I'm writeback！ inode=%d index=%d\n",page->mapping->host->i_ino, page->index);
+				if (wbc->sync_mode != WB_SYNC_NONE)
+					f2fs_wait_on_page_writeback(page,
+								DATA, true);
+				else
+					goto continue_unlock;
+			}
+
+			BUG_ON(PageWriteback(page));
+			if (!clear_page_dirty_for_io(page))
+				goto continue_unlock;
+			//TODO：建一个队列
+			printk("mutex_lock doing\n");
+			mutex_lock(&alloc_lock);//定时线程没有释放
+			
+			if(wait_flush>=1000){//或者时间延迟>30s
+				printk("fsync wait for flush!\n");			
+				flush_urgent();
+			}
+			//将page加入等待队列中
+			add_item(page->mapping->host->i_ino,mapping,page,wbc,io_type);
+			++wait_flush;
+			mutex_unlock(&alloc_lock);
+		
+			printk("__write_data_page： inode=%d index=%d\n",page->mapping->host->i_ino, page->index);
+			ret=0;
+			if (unlikely(ret)) {
+				/*
+				 * keep nr_to_write, since vfs uses this to
+				 * get # of written pages.
+				 */
+				if (ret == AOP_WRITEPAGE_ACTIVATE) {
+					unlock_page(page);
+					ret = 0;
+					continue;
+				} else if (ret == -EAGAIN) {
+					ret = 0;
+					if (wbc->sync_mode == WB_SYNC_ALL) {
+						cond_resched();
+						congestion_wait(BLK_RW_ASYNC,
+									HZ/50);
+						goto retry_write;
+					}
+					continue;
+				}
+				done_index = page->index + 1;//必须要有
+				done = 1;
+				break;
+			} else if (submitted) {
+			 	last_idx = page->index;
+			 }
+
+			/* give a priority to WB_SYNC threads */
+			if ((atomic_read(&F2FS_M_SB(mapping)->wb_sync_req) ||
+					--nr_write <= 0) && //--wbc->nr_to_write <= 0)
+					wbc->sync_mode == WB_SYNC_NONE) {//fsync不可能
+				done = 1;
+				break;
+			}
+		}
+		//晚一点释放，页表无所谓
+		pagevec_release(&pvec);
+		cond_resched();
+	}
+
+	if (!cycled && !done) {
+		cycled = 1;
+		index = 0;
+		end = writeback_index - 1;
+		goto retry;
+	}
+	if (wbc->range_cyclic || (range_whole && wbc->nr_to_write > 0))
+		mapping->writeback_index = done_index;
+	//有问题
+	/*
+	if (last_idx != ULONG_MAX)
+		f2fs_submit_merged_write_cond(F2FS_M_SB(mapping), mapping->host,
+						0, last_idx, DATA);*/
+
+	return ret;
+}
+#endif
+
 int __f2fs_write_data_pages(struct address_space *mapping,
 						struct writeback_control *wbc,
 						enum iostat_type io_type)
@@ -1809,7 +1998,7 @@ int __f2fs_write_data_pages(struct address_space *mapping,
 	ret = f2fs_write_cache_pages(mapping, wbc, io_type);
 	blk_finish_plug(&plug);
 
-	if (wbc->sync_mode == WB_SYNC_ALL)
+	if (wbc->sync_mode == WB_SYNC_ALL)	//fsync结束，减少syn请求计数
 		atomic_dec(&sbi->wb_sync_req);
 	/*
 	 * if some pages were truncated, we cannot guarantee its mapping->host

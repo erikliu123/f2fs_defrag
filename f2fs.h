@@ -1119,6 +1119,7 @@ struct f2fs_sb_info {
 	/* for cleaning operations */
 	struct mutex gc_mutex;			/* mutex for GC */
 	struct f2fs_gc_kthread	*gc_thread;	/* GC thread */
+	struct f2fs_latent_alloc_kthread	*latent_alloc_kthread;	/* 延时分配 thread */
 	unsigned int cur_victim_sec;		/* current victim section num */
 
 	/* threshold for converting bg victims for fg */
@@ -1583,8 +1584,8 @@ static inline int inc_valid_block_count(struct f2fs_sb_info *sbi,
 	spin_lock(&sbi->stat_lock);
 	sbi->total_valid_block_count += (block_t)(*count);
 	avail_user_block_count = sbi->user_block_count -
-					sbi->current_reserved_blocks;
-	if (unlikely(sbi->total_valid_block_count > avail_user_block_count)) {
+					sbi->current_reserved_blocks;					//当前的可用block数目
+	if (unlikely(sbi->total_valid_block_count > avail_user_block_count)) {	//总的有效块数目 > 当前的可用块数目
 		diff = sbi->total_valid_block_count - avail_user_block_count;
 		*count -= diff;
 		release = diff;
@@ -1598,7 +1599,7 @@ static inline int inc_valid_block_count(struct f2fs_sb_info *sbi,
 	spin_unlock(&sbi->stat_lock);
 
 	if (release)
-		dquot_release_reservation_block(inode, release);
+		dquot_release_reservation_block(inode, release);			//释放保留块
 	f2fs_i_blocks_write(inode, *count, true, true);
 	return 0;
 
@@ -2712,6 +2713,12 @@ void destroy_checkpoint_caches(void);
 /*
  * data.c
  */
+int __init init_latent_alloc_caches(void);
+void destroy_latent_alloc_caches(void);
+int start_latent_alloc_thread(struct f2fs_sb_info *sbi);
+void stop_latent_alloc_thread(struct f2fs_sb_info *sbi);
+
+
 void f2fs_submit_merged_write(struct f2fs_sb_info *sbi, enum page_type type);
 void f2fs_submit_merged_write_cond(struct f2fs_sb_info *sbi,
 				struct inode *inode, nid_t ino, pgoff_t idx,

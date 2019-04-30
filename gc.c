@@ -133,7 +133,7 @@ static int gc_thread_func(void *data)
 		stat_inc_bggc_count(sbi);
 
 		/* if return value is not zero, no victim was selected */
-		if (f2fs_gc(sbi, test_opt(sbi, FORCE_FG_GC), true, NULL_SEGNO))
+		if (f2fs_gc(sbi, test_opt(sbi, FORCE_FG_GC), true, NULL_SEGNO))//返回0，说明有GC回收
 			wait_ms = gc_th->no_gc_sleep_time;
 
 		trace_f2fs_background_gc(sbi->sb, wait_ms,
@@ -598,7 +598,7 @@ next_step:
  * as indirect or double indirect node blocks, are given, it must be a caller's
  * bug.
  */
-block_t start_bidx_of_node(unsigned int node_ofs, struct inode *inode)
+block_t start_bidx_of_node(unsigned int node_ofs, struct inode *inode)//返回直接结点对应的block索引
 {
 	unsigned int indirect_blks = 2 * NIDS_PER_BLOCK + 4;
 	unsigned int bidx;
@@ -1164,7 +1164,7 @@ static int do_garbage_collect(struct f2fs_sb_info *sbi,
 	}
 
 	blk_start_plug(&plug);
-	printk("GC: mov data/node block\tgc_type=%s\n",gc_type==BG_GC?"BG":"FG");
+	printk("GC: mov data/node block\tgc_type=%s, %s\n",gc_type==BG_GC?"BG":"FG",(type==SUM_TYPE_DATA)?"DATA":"NODE");
 	for (segno = start_segno; segno < end_segno; segno++)
 	{
 

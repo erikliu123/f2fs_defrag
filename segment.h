@@ -821,10 +821,8 @@ static inline void wake_up_discard_thread(struct f2fs_sb_info *sbi, bool force)
 	struct discard_cmd_control *dcc = SM_I(sbi)->dcc_info;
 	bool wakeup = false;
 	int i;
-
 	if (force)
 		goto wake_up;
-
 	mutex_lock(&dcc->cmd_lock);
 	for (i = MAX_PLIST_NUM - 1; i >= 0; i--) {
 		if (i + 1 < dcc->discard_granularity)

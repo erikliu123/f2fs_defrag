@@ -1,11 +1,11 @@
 cd /mnt/fs
 count=0
-echo 200000 > /sys/kernel/debug/tracing/buffer_size_kb
+echo 2000 > /sys/kernel/debug/tracing/buffer_size_kb
 echo "" > /sys/kernel/debug/tracing/trace
 echo 1 >  /sys/kernel/debug/tracing/tracing_on
 #echo 1 >  /sys/kernel/debug/tracing/events/block/enable
 echo 1 >  /sys/kernel/debug/tracing/events/f2fs/enable
-until [  "$count" == "20000" ] #400000
+until [  "$count" == "400000" ] #400000 * 4K
 do
 	rand=$RANDOM
 	let "rand %= 20" #50
@@ -17,3 +17,5 @@ done
 #exit 0
 echo 0 >  /sys/kernel/debug/tracing/tracing_on
 exit 0
+
+

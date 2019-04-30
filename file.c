@@ -1978,7 +1978,7 @@ got_it:
 	return 0;
 }
 
-static int f2fs_ioc_gc(struct file *filp, unsigned long arg)
+static int f2fs_ioc_gc(struct file *filp, unsigned long arg)//文件意义不大，只要是F2FS下的文件即可
 {
 	struct inode *inode = file_inode(filp);
 	struct f2fs_sb_info *sbi = F2FS_I_SB(inode);
@@ -2685,7 +2685,7 @@ long printk_nid_path(struct file *filp, unsigned long arg){//arg传 文件偏移
 	unsigned int noffset[4];
 	nid_t nids[4];
 	int level, i = 0;
-	int err = 0;
+	//int err = 0;
 	int *temp=arg;
 	int index=temp[0];
 
@@ -2707,8 +2707,10 @@ long printk_file(struct file *filp, unsigned long arg){
 	struct dnode_of_data dn;
 	struct page *page;
 	int begins=s[0],ends=s[1];
+	struct f2fs_node *nodes;
 	page=get_node_page(F2FS_I_SB(inode), inode->i_ino);
-	struct f2fs_node *nodes=F2FS_NODE(page);//f2fs_inode 在内存的位置
+	
+	nodes=F2FS_NODE(page);//f2fs_inode 在内存的位置
 	printk("begin=%d, end=%d\npage address=%x\n",begins, ends, page);
 	/*
 	//用于测试get_dnode_of_data的正确性
@@ -2759,6 +2761,55 @@ long printk_file(struct file *filp, unsigned long arg){
     }
 
 }
+long frag_value(struct file *filp, unsigned long arg){
+	
+	struct inode *inode = file_inode(filp);
+	//struct f2fs_inode_info *fi = F2FS_I(inode);
+	int times=inode->i_size>(64*4096) ? 64: (inode->i_size>>12);//256KB
+	struct page *page;
+	struct dnode_of_data dn;
+	int index,last_blkaddr;
+	int fragments=1;
+	int *s=arg;
+	int begins=s[0],ends=s[1];
+	if(s[0]==-1){
+		ends=(inode->i_size+4095)>>12;
+		begins=1;
+	}
+	else{
+		if(ends>((inode->i_size+4095)>>12)){
+			ends=(inode->i_size+4095)>>12;
+		}
+		if(begins<=ends) ;
+		else return -1;
+	}
+	page=get_node_page(F2FS_I_SB(inode), inode->i_ino);
+	set_new_dnode(&dn, inode, page, page, 0);//找对inode page和node page的位置即可，nid=0是因为不知道？
+	get_dnode_of_data(&dn, 0, LOOKUP_NODE_RA);//第1块
+        //dn.data_blkaddr = datablock_addr(dn.inode, dn.node_page, dn.ofs_in_node);  //useless
+	last_blkaddr=dn.data_blkaddr;
+	//printk("frag:inode=%ld, index=0, blkaddr=%d\n",dn.inode->i_ino, dn.data_blkaddr);
+	f2fs_put_dnode(&dn);//没有会卡死
+	for (index = begins; index < ends; index++) {
+		page=get_node_page(F2FS_I_SB(inode), inode->i_ino);
+		set_new_dnode(&dn, inode, page, page, 0);//找对inode page和node page的位置即可，nid=0是因为不知道？
+		get_dnode_of_data(&dn, index, LOOKUP_NODE_RA);
+        
+		if(dn.data_blkaddr==NEW_ADDR && last_blkaddr!=NEW_ADDR){
+			++fragments;
+			last_blkaddr=dn.data_blkaddr;
+			f2fs_put_dnode(&dn);//没有会卡死
+			continue;
+		}
+		else if((last_blkaddr+1)!=dn.data_blkaddr){
+			++fragments;
+		}
+		last_blkaddr=dn.data_blkaddr;
+		f2fs_put_dnode(&dn);//没有会卡死
+	}
+	return fragments;
+
+}
 long f2fs_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	if (unlikely(f2fs_cp_error(F2FS_I_SB(file_inode(filp)))))
@@ -2769,6 +2820,8 @@ long f2fs_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
         return printk_file(filp,arg);
 	case 0xf8f9:
 		return printk_nid_path(filp,arg);
+	case 0xf8fa:
+		return frag_value(filp,arg);
 /*long f2fs_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 {
 	if (unlikely(f2fs_cp_error(F2FS_I_SB(file_inode(filp)))))
@@ -2807,7 +2860,7 @@ long f2fs_ioctl(struct file *filp, unsigned int cmd, unsigned long arg)
 		return f2fs_ioc_gc_range(filp, arg);
 	case F2FS_IOC_WRITE_CHECKPOINT:
 		return f2fs_ioc_write_checkpoint(filp, arg);
-	case F2FS_IOC_DEFRAGMENT:
+	case F2FS_IOC_DEFRAGMENT://重要
 		return f2fs_ioc_defragment(filp, arg);
 	case F2FS_IOC_MOVE_RANGE:
 		return f2fs_ioc_move_range(filp, arg);
