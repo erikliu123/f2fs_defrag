@@ -26,7 +26,8 @@
 #include <crypto/hash.h>
 
 #define __FS_HAS_ENCRYPTION IS_ENABLED(CONFIG_F2FS_FS_ENCRYPTION)
-#define DELAY_FSYNC //延时分配
+//#define DELAY_FSYNC //延时分配
+
 #include <linux/fscrypt.h>
 
 #ifdef CONFIG_F2FS_CHECK_FS

@@ -1823,14 +1823,10 @@ static int f2fs_write_cache_pages(struct address_space *mapping,
 	int tag;
 	int nr_write=wbc->nr_to_write;
 	struct writeback_control *newitem;
+	int flushed=0;
 	//newitem=kzalloc(sizeof(struct writeback_control),GFP_ATOMIC);
-	
-	newitem=f2fs_kmem_cache_alloc(wb_cache, GFP_NOFS);
-	newitem->range_start = wbc->range_start;
-	newitem->range_end =  wbc->range_end;
-	newitem->sync_mode = wbc->sync_mode;
-	newitem->tagged_writepages=wbc->tagged_writepages;
-	newitem->range_cyclic=wbc->range_cyclic;
+
+	//int has_newitem=0;
 	//memcpy(newitem,wbc,sizeof(struct writeback_control));
 	pagevec_init(&pvec);
 	printk("inode=%ld,dirtypages=%d\n",mapping->host->i_ino,get_dirty_pages(mapping->host));
@@ -1870,9 +1866,19 @@ retry:
 		nr_pages = pagevec_lookup_range_tag(&pvec, mapping, &index, end,
 				tag);//radix tree组织起来，找到slot数组
 		printk("number pages=%d",nr_pages);
+		/*if(!has_newitem){
+			has_newitem=1;
+			cond_resched();
+			newitem=f2fs_kmem_cache_alloc(wb_cache, GFP_NOFS);//GFP_ATOMIC 被kill的更多。
+			newitem->range_start = wbc->range_start;
+			newitem->range_end =  wbc->range_end;
+			newitem->sync_mode = wbc->sync_mode;
+			newitem->tagged_writepages=wbc->tagged_writepages;
+			newitem->range_cyclic=wbc->range_cyclic;
+		}*/
 		if (nr_pages == 0)
 			break;
-
+		flushed=0;
 		for (i = 0; i < nr_pages; i++) {
 			struct page *page = pvec.pages[i];
 			bool submitted = false;
@@ -1903,17 +1909,26 @@ continue_unlock:
 			if (!clear_page_dirty_for_io(page))
 				goto continue_unlock;
 			//TODO：建一个队列
+			//mutex_unlock(&alloc_lock);
 			printk("mutex_lock doing\n");
 			mutex_lock(&alloc_lock);//定时线程没有释放
-			
-			if(wait_flush>=1000){//或者时间延迟>30s
-				printk("fsync wait for flush!\n");			
+			add_item(page->mapping->host->i_ino,mapping,page,wbc,io_type);
+			++wait_flush;
+			if(wait_flush>=BIO_THREHOLD){//或者时间延迟>30s
+				unlock_page(page);//先解锁
+				printk("fsync wait for flush!\n");	
 				flush_urgent();
+				printk("fsync finish!!!\n");	
+				flushed=1;
+				mutex_unlock(&alloc_lock);//定时线程没有释放
 			}
 			//将page加入等待队列中
-			add_item(page->mapping->host->i_ino,mapping,page,newitem,io_type);
-			unlock_page(page);//释放页
-			++wait_flush;
+			
+				
+			if(flushed){
+				mutex_lock(&alloc_lock);
+				flushed=1;
+			}
 			mutex_unlock(&alloc_lock);
 			printk("__write_data_page： inode=%d index=%d\n",page->mapping->host->i_ino, page->index);
 			ret=0;
@@ -1942,7 +1957,7 @@ continue_unlock:
 			} else if (submitted) {
 			 	last_idx = page->index;
 			 }
-
+			unlock_page(page);//需要解锁，因为没有调用write_data_page
 			/* give a priority to WB_SYNC threads */
 			if ((atomic_read(&F2FS_M_SB(mapping)->wb_sync_req) ||
 					--nr_write <= 0) && //--wbc->nr_to_write <= 0)
@@ -1951,7 +1966,7 @@ continue_unlock:
 				break;
 			}
 		}
-		//晚一点释放，页表无所谓
+		//晚一点释放页表的页
 		//pagevec_release(&pvec);
 		cond_resched();
 	}

@@ -10,8 +10,9 @@
 
 static int f2fs_write_data_page(struct page *page,
 					struct writeback_control *wbc);
+//缓冲位置					
 static struct kmem_cache *latent_cache,*wb_cache;
-static struct list_head alloc_list;
+//static struct list_head alloc_list;
 struct mutex alloc_lock;
 
 static int latent_alloc_thread_func(void *data);
@@ -31,7 +32,25 @@ struct latent_alloc{
 	int ino;
 	struct address_space *mapping;
 	struct page *page; //会不会被free?
-	struct writeback_control *wbc;
+	//struct writeback_control wbc;
+	struct{
+	long nr_to_write;		/* Write this many pages, and decrement					   this for each page written */
+	long pages_skipped;		/* Pages which were not written */
+
+	/*
+	 * For a_ops->writepages(): if start or end are non-zero then this is
+	 * a hint that the filesystem need only write out the pages inside that
+	 * byterange.  The byte at `end' is included in the writeout request.
+	 */
+	loff_t range_start;
+	loff_t range_end;
+	enum writeback_sync_modes sync_mode;
+	unsigned for_kupdate:1;		/* A kupdate writeback */
+	unsigned for_background:1;	/* A background writeback */
+	unsigned tagged_writepages:1;	/* tag-and-write to avoid livelock */
+	unsigned for_reclaim:1;		/* Invoked from the page allocator */
+	unsigned range_cyclic:1;	/* range_start is cyclic */
+	}wbc;
     int flushed;
     int io_type;
 	struct list_head next;
@@ -50,12 +69,15 @@ int hasflush=0,wait_flush=0;
 
 int __init init_latent_alloc_caches(void){
     INIT_LIST_HEAD(&cache_alloc_head);
+	 mutex_destroy(&alloc_lock);
     mutex_init(&alloc_lock);
+	
     latent_cache=f2fs_kmem_cache_create("latent_alloc_slab",
 										 sizeof(struct latent_alloc));
     if(!latent_cache) goto destroy_latent;
     wb_cache=f2fs_kmem_cache_create("writeback_alloc_slab",
 										 sizeof(struct writeback_control));
+	printk("size of latent_alloc=%dB,writeback_control=%d",sizeof(struct latent_alloc),sizeof(struct writeback_control));
     if(!wb_cache) goto destroy_WB;
     return 0;
 destroy_WB:
@@ -82,36 +104,37 @@ int flush_urgent(void){
 	
     list_sort(NULL,&cache_alloc_head,compare);//排序，失败？
 	printk("sort finish... writeback is doing");
+	int last_inode=-1,cur_inode;
     list_for_each(pos, &cache_alloc_head){
         	struct latent_alloc *ie = list_entry(pos, struct latent_alloc, next);
-            struct writeback_control *wbc=ie->wbc;
+            struct writeback_control *wbc=( struct writeback_control *)&(ie->wbc);
             struct page *page=ie->page;
-			printk("before write index=%ld ,page addr=%x, wbc_start=%d, wbc_end=%d\n",
+			printk("before write index=%ld, page addr=%x, wbc_start=%d, wbc_end=%d\n",
 				page->index,page,wbc->range_start>>12,wbc->range_end>>12);//key
-				
-			vfs_inode=f2fs_iget(rencently_inode->i_sb, page->mapping->host->i_ino);
+			//vfs_inode=f2fs_iget(rencently_inode->i_sb, page->mapping->host->i_ino);
 			pagevec_init(&pvec);
 			end=(ie->mapping->host->i_size+4093)>>12;
 			index=page->index;
+			cur_inode=ie->mapping->host->i_ino;
+			if(cur_inode==last_inode) continue;
 			while(index<end){
-			nr_pages = pagevec_lookup_range_tag(&pvec, vfs_inode->i_mapping , &index, (vfs_inode->i_size+4093)>>12,
-					PAGECACHE_TAG_TOWRITE);//radix tree组织起来，找到slot数组
+				nr_pages = pagevec_lookup_range_tag(&pvec, ie->mapping , &index, (ie->mapping->host->i_size+4093)>>12,
+					PAGECACHE_TAG_TOWRITE);//radix tree组织起来，找到slot数组*/
 		    for (i = 0; i < nr_pages; i++) {
-
-					
 retry_write2:
             //lock_page(ie->page);
 			page=pvec.pages[i];
 			
-			printk("before write index=%ld ,page addr=%x, wbc_start=%d, wbc_end=%d\n",
-				page->index,page,wbc->range_start>>12,wbc->range_end>>12);//key
+			printk("writing :inode=%d, page's index=%d\n",
+			page->mapping->host->i_ino,page->index);//key
 			lock_page( pvec.pages[i]);
            // ret = __write_data_page(ie->page, &submitted, wbc, ie->io_type);
 		    ret=f2fs_write_data_page(page,wbc);
 		  
-			printk("ret=%d\n",ret);
-            printk("flush_urgent: inode=%d ",page->mapping->host->i_ino);
-			printk(" index=%ld\n",page->index);//key
+			if(ret)
+           	 	printk("WRANING WRITE FAILURE!! ret=%d,  inode=%d, index=%d",ret,page->mapping->host->i_ino,page->index);
+			else 
+				printk("successfully write");
 			if (unlikely(ret)) {
 				if (ret == AOP_WRITEPAGE_ACTIVATE) {
 					unlock_page(page);
@@ -139,7 +162,8 @@ retry_write2:
 			//static void __page_cache_release(struct page *page)
 			//__page_cache_release(page);//释放页
 			 //release_pages(struct page **pages, int nr);
-			  release_pages(&page, 1);
+
+			 // release_pages(&page, 1); //已经有 pagevec_release
 			/*else if (submitted) {
 				last_idx = page->index;
 			}*/
@@ -148,14 +172,13 @@ retry_write2:
             --wait_flush;
             ie->flushed=1;
 			}
-		pagevec_release(&pvec);
-		cond_resched();
-		kmem_cache_free(wb_cache,wbc);//释放wbc
+			pagevec_release(&pvec);
+			cond_resched();
+			//kmem_cache_free(wb_cache,wbc);//释放wbc，但是有可能这个wbc是最新正在回写的wbc?
 		}
+		last_inode=cur_inode;
 			/* give a priority to WB_SYNC threads */
-			/*if ((atomic_read(&F2FS_M_SB(mapping)->wb_sync_req) ||
-					--wbc->nr_to_write <= 0) &&
-					wbc->sync_mode == WB_SYNC_NONE) {
+			/*if ((atomic_read(&F2FS_M_SB(mapping)->wb_sync_req) || --wbc->nr_to_write <= 0) && wbc->sync_mode == WB_SYNC_NONE) {
 				done = 1;
 				break;
 			}*/
@@ -168,7 +191,12 @@ int add_item(int i_num, struct address_space *map, struct page *page, struct wri
         new->ino=i_num;
         new->mapping=map;
         new->page=page;
-        new->wbc=wbc;
+        //new->wbc=wbc;
+		new->wbc.range_start = wbc->range_start;
+		new->wbc.range_end =  wbc->range_end;
+		new->wbc.sync_mode = wbc->sync_mode;
+		new->wbc.tagged_writepages=wbc->tagged_writepages;
+		new->wbc.range_cyclic=wbc->range_cyclic;
         new->flushed=0;
         new->io_type=io_type;
         list_add_tail(&(new->next),&cache_alloc_head);
@@ -245,10 +273,10 @@ static int latent_alloc_thread_func(void *data)
 			mutex_unlock(&alloc_lock);//忘记解锁！
 			continue;
 		}
-        /*
+        
 		if(gc_th->last_latency==0){
-            if(wait_flush>BIO_THREHOLD){//flush
-                printk("flush begins in thread\n");
+            if(wait_flush>BIO_THREHOLD*3/4){//flush
+                printk("flush triggers for capacity\n");
                 flush_urgent();
             }
             else gc_th->last_latency=1;//can add wake time
@@ -257,14 +285,18 @@ static int latent_alloc_thread_func(void *data)
         }
         if(gc_th->last_latency>0){//flush
             gc_th->last_latency--;
+			 printk("flush triggers for timeout\n");
             flush_urgent(); //TODO...
         }
-		*/
+		
        //强制刷写
        //gc_th->sleep_time =(wait_ms+10)>60?60:(wait_ms+10);
         mutex_unlock(&alloc_lock);
 
 	} while (!kthread_should_stop());
+
+	free_latent_list(&cache_alloc_head);//扔掉未写入的IO
+	 mutex_destroy(&alloc_lock);
 	return 0;
 }
 
@@ -282,10 +314,11 @@ void stop_latent_alloc_thread(struct f2fs_sb_info *sbi)
 //release slab
 void destroy_latent_alloc_caches(void)
 {
+	if(wb_cache)
+    kmem_cache_destroy(wb_cache);
 	if(latent_cache)
 	kmem_cache_destroy(latent_cache);
-    if(wb_cache)
-    kmem_cache_destroy(wb_cache);
+  
 }
 int compare(void *priv, struct list_head *a, struct list_head *b){
     struct address_space *tempa,*tempb;
