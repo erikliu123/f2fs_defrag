@@ -2391,6 +2391,12 @@ try_onemore:
 
 	/* allocate memory for f2fs-specific super block info */
 	sbi = kzalloc(sizeof(struct f2fs_sb_info), GFP_KERNEL);
+#ifdef DELAY_FSYNC
+	sbi->wait_flush=sbi->hasflush=0;
+	 mutex_init(&(sbi->alloc_lock));
+	 INIT_LIST_HEAD(&(sbi->cache_alloc_head));
+#endif
+
 	if (!sbi)
 		return -ENOMEM;
 
@@ -2702,9 +2708,11 @@ skip_recovery:
 			goto free_meta;
 		
 	}
-	err=start_latent_alloc_thread(sbi);//不严谨，TODO
+#ifdef DELAY_FSYNC
+	err=start_latent_alloc_thread(sbi);//不太严谨
 	if (err)
 		goto free_meta;
+#endif
 	kfree(options);
 
 	/* recover broken superblock */

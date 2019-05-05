@@ -26,7 +26,7 @@
 #include <crypto/hash.h>
 
 #define __FS_HAS_ENCRYPTION IS_ENABLED(CONFIG_F2FS_FS_ENCRYPTION)
-//#define DELAY_FSYNC //延时分配
+#define DELAY_FSYNC //延时分配
 
 #include <linux/fscrypt.h>
 
@@ -1029,7 +1029,12 @@ struct f2fs_sb_info {
 	unsigned int blocks_per_blkz;		/* F2FS blocks per zone */
 	unsigned int log_blocks_per_blkz;	/* log2 F2FS blocks per zone */
 #endif
-
+#ifdef DELAY_FSYNC
+	struct list_head cache_alloc_head;
+struct inode *rencently_inode;
+struct mutex alloc_lock;
+int hasflush,wait_flush;
+#endif
 	/* for node-related operations */
 	struct f2fs_nm_info *nm_info;		/* node manager */
 	struct inode *node_inode;		/* cache node blocks */

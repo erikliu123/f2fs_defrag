@@ -311,7 +311,7 @@ static void __f2fs_submit_merged_write(struct f2fs_sb_info *sbi,
 	down_write(&io->io_rwsem);
 
 	/* change META to META_FLUSH in the checkpoint procedure */
-	if (type >= META_FLUSH) {
+	if (type >= META_FLUSH) { //FG_GC不会进入。
 		io->fio.type = META_FLUSH;
 		io->fio.op = REQ_OP_WRITE;
 		io->fio.op_flags = REQ_META | REQ_PRIO | REQ_SYNC;
@@ -324,11 +324,11 @@ static void __f2fs_submit_merged_write(struct f2fs_sb_info *sbi,
 
 static void __submit_merged_write_cond(struct f2fs_sb_info *sbi,
 				struct inode *inode, nid_t ino, pgoff_t idx,
-				enum page_type type, bool force)
+				enum page_type type, bool force)//__submit_merged_write_cond(sbi, NULL, 0, 0, data/node, true);
 {
 	enum temp_type temp;
 
-	if (!force && !has_merged_page(sbi, inode, ino, idx, type))
+	if (!force && !has_merged_page(sbi, inode, ino, idx, type)) //has_merged_page,FG_GC返回true
 		return;
 
 	for (temp = HOT; temp < NR_TEMP_TYPE; temp++) {
@@ -1824,11 +1824,12 @@ static int f2fs_write_cache_pages(struct address_space *mapping,
 	int nr_write=wbc->nr_to_write;
 	struct writeback_control *newitem;
 	int flushed=0;
+	struct f2fs_sb_info *sbi = F2FS_I_SB(mapping->host);
 	//newitem=kzalloc(sizeof(struct writeback_control),GFP_ATOMIC);
-
 	//int has_newitem=0;
 	//memcpy(newitem,wbc,sizeof(struct writeback_control));
 	pagevec_init(&pvec);
+	
 	printk("inode=%ld,dirtypages=%d\n",mapping->host->i_ino,get_dirty_pages(mapping->host));
 	if (get_dirty_pages(mapping->host) <=
 				SM_I(F2FS_M_SB(mapping))->min_hot_blocks)
@@ -1859,13 +1860,13 @@ retry:
 	if (wbc->sync_mode == WB_SYNC_ALL || wbc->tagged_writepages)
 		tag_pages_for_writeback(mapping, index, end);
 	done_index = index;
-	rencently_inode=mapping->host;
+	sbi->rencently_inode=mapping->host;//更新最新获取的inode
 	while (!done && (index <= end)) {
 		int i;
 
 		nr_pages = pagevec_lookup_range_tag(&pvec, mapping, &index, end,
 				tag);//radix tree组织起来，找到slot数组
-		printk("number pages=%d",nr_pages);
+		printk("number of dirty pages =%d",nr_pages);
 		/*if(!has_newitem){
 			has_newitem=1;
 			cond_resched();
@@ -1885,10 +1886,13 @@ retry:
 			done_index = page->index;
 retry_write:
 			lock_page(page);
-			if (unlikely(page->mapping != mapping)) {
+			if (unlikely(page->mapping != mapping)) {//TODO:why this happen?
 continue_unlock:
 				unlock_page(page);
-				continue;
+				printk("WARNING! page mapping inconsisitent!");
+				pagevec_release(&pvec);
+				break;
+				//continue;
 			}
 
 			if (!PageDirty(page)) {
@@ -1909,27 +1913,27 @@ continue_unlock:
 			if (!clear_page_dirty_for_io(page))
 				goto continue_unlock;
 			//TODO：建一个队列
-			//mutex_unlock(&alloc_lock);
+			//mutex_unlock(&sbi->alloc_lock);
 			printk("mutex_lock doing\n");
-			mutex_lock(&alloc_lock);//定时线程没有释放
-			add_item(page->mapping->host->i_ino,mapping,page,wbc,io_type);
-			++wait_flush;
-			if(wait_flush>=BIO_THREHOLD){//或者时间延迟>30s
+			mutex_lock(&sbi->alloc_lock);//定时线程没有释放
+			add_item(sbi, page->mapping->host->i_ino, mapping, page, wbc, io_type);
+			++sbi->wait_flush;
+			if(sbi->wait_flush>=BIO_THREHOLD){//或者时间延迟>30s
 				unlock_page(page);//先解锁
 				printk("fsync wait for flush!\n");	
-				flush_urgent();
+				flush_urgent(sbi);
 				printk("fsync finish!!!\n");	
 				flushed=1;
-				mutex_unlock(&alloc_lock);//定时线程没有释放
+				mutex_unlock(&sbi->alloc_lock);//定时线程没有释放
 			}
 			//将page加入等待队列中
 			
 				
 			if(flushed){
-				mutex_lock(&alloc_lock);
+				mutex_lock(&sbi->alloc_lock);
 				flushed=1;
 			}
-			mutex_unlock(&alloc_lock);
+			mutex_unlock(&sbi->alloc_lock);
 			printk("__write_data_page： inode=%d index=%d\n",page->mapping->host->i_ino, page->index);
 			ret=0;
 			if (unlikely(ret)) {
@@ -1982,7 +1986,8 @@ continue_unlock:
 	/*
 	if (last_idx != ULONG_MAX)
 		f2fs_submit_merged_write_cond(F2FS_M_SB(mapping), mapping->host,
-						0, last_idx, DATA);*/
+						0, last_idx, DATA);
+						*/
 
 	return ret;
 }

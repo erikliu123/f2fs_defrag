@@ -23,6 +23,7 @@
 #include "gc.h"
 #include <trace/events/f2fs.h>
 
+#define GC_SEC_NEED 60
 static struct kmem_cache *gc_ino_slab;
 static struct kmem_cache *gc_inoblkaddr_slab;
 int __init init_gc_caches()
@@ -958,7 +959,7 @@ next_step:
 		nid_t nid = le32_to_cpu(entry->nid);
 
 		/* stop BG_GC if there is not enough free sections. */
-		if (gc_type == BG_GC && has_not_enough_free_secs(sbi, 0, 0))
+		if (gc_type == BG_GC && has_not_enough_free_secs(sbi, 0, GC_SEC_NEED))
 			return;
 
 		if (check_valid_map(sbi, segno, off) == 0)
@@ -1219,7 +1220,7 @@ static int do_garbage_collect(struct f2fs_sb_info *sbi,
 }
 
 int f2fs_gc(struct f2fs_sb_info *sbi, bool sync,
-			bool background, unsigned int segno) //segno=NULL
+			bool background, unsigned int segno) //segno=NULL,f2fs_balance_fs时 sync=background=false
 {
 	int gc_type = sync ? FG_GC : BG_GC;
 	int sec_freed = 0, seg_freed = 0, total_freed = 0;
@@ -1253,7 +1254,7 @@ gc_more:
 		goto stop;
 	}
 
-	if (gc_type == BG_GC && has_not_enough_free_secs(sbi, 0, 0))
+	if (gc_type == BG_GC && has_not_enough_free_secs(sbi, 0, GC_SEC_NEED))//关键调整，提高参数3 needed 到 20？
 	{
 		/*
 		 * For example, if there are many prefree_segments below given
@@ -1266,7 +1267,7 @@ gc_more:
 			if (ret)
 				goto stop;
 		}
-		if (has_not_enough_free_secs(sbi, 0, 0))
+		if (has_not_enough_free_secs(sbi, 0, GC_SEC_NEED))
 			gc_type = FG_GC;
 	}
 
@@ -1292,7 +1293,7 @@ gc_more:
 
 	if (!sync)
 	{
-		if (has_not_enough_free_secs(sbi, sec_freed, 0))
+		if (has_not_enough_free_secs(sbi, sec_freed, GC_SEC_NEED))
 		{
 			segno = NULL_SEGNO;
 			goto gc_more;

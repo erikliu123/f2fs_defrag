@@ -3,7 +3,7 @@
 #make clean
 #echo -n "Enter your choice:"   #参数-n的作用是不换行，echo默认是换行
 if [ $# -ne 2 ]; then
-	echo "输入选项 [intsall | remove] [设备]"
+	echo "输入选项 [intsall | remove | mount] [设备]"
 	exit
 fi
 echo "the shell is for HDD"
