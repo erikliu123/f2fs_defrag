@@ -1,0 +1,35 @@
+#没有改之前的F2FS
+/mnt/hdd/sync100m fragments=16
+/mnt/hdd/sync1m fragments=250
+/mnt/hdd/sync1m2 fragments=256
+/mnt/hdd/sync20m1 fragments=644
+/mnt/hdd/sync20m2 fragments=641
+/mnt/hdd/sync20m4k fragments=5115
+/mnt/hdd/sync2m1 fragments=256
+/mnt/hdd/sync2m2 fragments=256
+/mnt/hdd/sync50m fragments=5115
+
+#after
+peter@potter-PC:~/Desktop/f2fs/data$ ./frag /mnt/hdd/fsync/*
+/mnt/hdd/fsync/sync100m fragments=469
+/mnt/hdd/fsync/sync1m fragments=37
+/mnt/hdd/fsync/sync1m2 fragments=35
+/mnt/hdd/fsync/sync20m1 fragments=76
+/mnt/hdd/fsync/sync20m2 fragments=75
+/mnt/hdd/fsync/sync20m4k fragments=274
+/mnt/hdd/fsync/sync2m1 fragments=45
+/mnt/hdd/fsync/sync2m2 fragments=42
+/mnt/hdd/fsync/sync50m fragments=273
+
+#HDD 后台GC后
+/mnt/hdd/sync100m fragments=16
+/mnt/hdd/sync1m fragments=25
+/mnt/hdd/sync1m2 fragments=27
+/mnt/hdd/sync20m1 fragments=68
+/mnt/hdd/sync20m2 fragments=69
+/mnt/hdd/sync20m4k fragments=4360
+/mnt/hdd/sync2m1 fragments=27
+/mnt/hdd/sync2m2 fragments=26
+/mnt/hdd/sync50m fragments=4360
+
+

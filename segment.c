@@ -1409,7 +1409,14 @@ static int issue_discard_thread(void *data)
 		}
 
 		sb_start_intwrite(sbi->sb);
-
+/*
+[ 4150.164770] Call Trace:
+[ 4150.164775]  ? wait_woken+0x80/0x80
+[ 4150.164778]  kthread+0x121/0x140
+[ 4150.164784]  ? __issue_discard_cmd+0x200/0x210 [f2fs]
+[ 4150.164786]  ? kthread_create_worker_on_cpu+0x70/0x70
+[ 4150.164790]  ret_from_fork+0x35/0x40
+*/
 		issued = __issue_discard_cmd(sbi, &dpolicy);
 		if (issued) {
 			__wait_all_discard_cmd(sbi, &dpolicy);

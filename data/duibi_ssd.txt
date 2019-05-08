@@ -1,0 +1,54 @@
+/mnt/ssd/sync100m fragments=1
+/mnt/ssd/sync1m fragments=249
+/mnt/ssd/sync1m2 fragments=256
+/mnt/ssd/sync20m1 fragments=646
+/mnt/ssd/sync20m2 fragments=641
+/mnt/ssd/sync20m4k fragments=5115
+/mnt/ssd/sync2m1 fragments=257
+/mnt/ssd/sync2m2 fragments=256
+/mnt/ssd/sync50m fragments=5115
+
+#实验2 Log=6
+fd=3
+/mnt/ssd/fsync/sync100m fragments=1
+fd=3
+/mnt/ssd/fsync/sync1m fragments=249
+fd=3
+/mnt/ssd/fsync/sync1m2 fragments=256
+fd=3
+/mnt/ssd/fsync/sync20m1 fragments=646
+fd=3
+/mnt/ssd/fsync/sync20m2 fragments=648
+fd=3
+/mnt/ssd/fsync/sync20m4k fragments=5115
+fd=3
+/mnt/ssd/fsync/sync2m1 fragments=256
+fd=3
+/mnt/ssd/fsync/sync2m2 fragments=256
+fd=3
+/mnt/ssd/fsync/sync50m fragments=5115
+
+#实验3 LOG=2
+Log=2
+root@potter-PC:/home/peter/Desktop/f2fs/data# ./frag /mnt/ssd/test2/*
+fd=3
+/mnt/ssd/test2/sync100m fragments=814
+fd=3
+/mnt/ssd/test2/sync1m fragments=249
+fd=3
+/mnt/ssd/test2/sync1m2 fragments=256
+fd=3
+/mnt/ssd/test2/sync20m1 fragments=645
+fd=3
+/mnt/ssd/test2/sync20m2 fragments=643
+fd=3
+/mnt/ssd/test2/sync20m4k fragments=5115
+fd=3
+/mnt/ssd/test2/sync2m1 fragments=256
+fd=3
+/mnt/ssd/test2/sync2m2 fragments=256
+fd=3
+/mnt/ssd/test2/sync50m fragments=5115
+
+
+

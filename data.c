@@ -1486,7 +1486,7 @@ out:
 
 static int __write_data_page(struct page *page, bool *submitted,
 				struct writeback_control *wbc,
-				enum iostat_type io_type)
+				enum iostat_type io_type)//wbc只看reclaim，for_kupdate，for_background等参数
 {
 	struct inode *inode = page->mapping->host;
 	struct f2fs_sb_info *sbi = F2FS_I_SB(inode);
@@ -1822,15 +1822,12 @@ static int f2fs_write_cache_pages(struct address_space *mapping,
 	int range_whole = 0;
 	int tag;
 	int nr_write=wbc->nr_to_write;
-	struct writeback_control *newitem;
+	//struct writeback_control *newitem;
 	int flushed=0;
 	struct f2fs_sb_info *sbi = F2FS_I_SB(mapping->host);
-	//newitem=kzalloc(sizeof(struct writeback_control),GFP_ATOMIC);
-	//int has_newitem=0;
-	//memcpy(newitem,wbc,sizeof(struct writeback_control));
 	pagevec_init(&pvec);
 	
-	printk("inode=%ld,dirtypages=%d\n",mapping->host->i_ino,get_dirty_pages(mapping->host));
+	printk("f2fs_write_cache_pages: inode=%ld,dirtypages=%d\n",mapping->host->i_ino,get_dirty_pages(mapping->host));
 	if (get_dirty_pages(mapping->host) <=
 				SM_I(F2FS_M_SB(mapping))->min_hot_blocks)
 		set_inode_flag(mapping->host, FI_HOT_DATA);
@@ -1852,54 +1849,53 @@ static int f2fs_write_cache_pages(struct address_space *mapping,
 			range_whole = 1;
 		cycled = 1; /* ignore range_cyclic tests */
 	}
-	if (wbc->sync_mode == WB_SYNC_ALL || wbc->tagged_writepages)
+	if(wbc->range_end==ULONG_MAX) return 0;
+	tag = PAGECACHE_TAG_TOWRITE;
+	/*if (wbc->sync_mode == WB_SYNC_ALL || wbc->tagged_writepages)
 		tag = PAGECACHE_TAG_TOWRITE;
 	else
-		tag = PAGECACHE_TAG_DIRTY;
+		tag = PAGECACHE_TAG_DIRTY;*/
 retry:
 	if (wbc->sync_mode == WB_SYNC_ALL || wbc->tagged_writepages)
 		tag_pages_for_writeback(mapping, index, end);
 	done_index = index;
 	sbi->rencently_inode=mapping->host;//更新最新获取的inode
+
 	while (!done && (index <= end)) {
 		int i;
-
+		int failmap=0;
 		nr_pages = pagevec_lookup_range_tag(&pvec, mapping, &index, end,
 				tag);//radix tree组织起来，找到slot数组
 		printk("number of dirty pages =%d",nr_pages);
-		/*if(!has_newitem){
-			has_newitem=1;
-			cond_resched();
-			newitem=f2fs_kmem_cache_alloc(wb_cache, GFP_NOFS);//GFP_ATOMIC 被kill的更多。
-			newitem->range_start = wbc->range_start;
-			newitem->range_end =  wbc->range_end;
-			newitem->sync_mode = wbc->sync_mode;
-			newitem->tagged_writepages=wbc->tagged_writepages;
-			newitem->range_cyclic=wbc->range_cyclic;
-		}*/
+		
 		if (nr_pages == 0)
 			break;
 		flushed=0;
+		
 		for (i = 0; i < nr_pages; i++) {
 			struct page *page = pvec.pages[i];
 			bool submitted = false;
 			done_index = page->index;
 retry_write:
 			lock_page(page);
-			if (unlikely(page->mapping != mapping)) {//TODO:why this happen?
+			if (unlikely(page->mapping != mapping)) {//TODO:why this happen? 目录为脏？
 continue_unlock:
 				unlock_page(page);
 				printk("WARNING! page mapping inconsisitent!");
-				pagevec_release(&pvec);
-				break;
+				++failmap;
+				if(failmap>3) {
+					page->mapping=mapping;
+					return 0;
+				}
 				//continue;
+				//pagevec_release(&pvec);
+				//break;
+				
 			}
-
 			if (!PageDirty(page)) {
 				/* someone wrote it for us */
 				goto continue_unlock;
 			}
-
 			if (PageWriteback(page)) {//fsync不会经过
 				printk("I'm writeback！ inode=%d index=%d\n",page->mapping->host->i_ino, page->index);
 				if (wbc->sync_mode != WB_SYNC_NONE)
@@ -1913,27 +1909,27 @@ continue_unlock:
 			if (!clear_page_dirty_for_io(page))
 				goto continue_unlock;
 			//TODO：建一个队列
-			//mutex_unlock(&sbi->alloc_lock);
-			printk("mutex_lock doing\n");
-			mutex_lock(&sbi->alloc_lock);//定时线程没有释放
+			mutex_lock(&sbi->alloc_lock);//定时线程没有释放,why???
 			add_item(sbi, page->mapping->host->i_ino, mapping, page, wbc, io_type);
 			++sbi->wait_flush;
 			if(sbi->wait_flush>=BIO_THREHOLD){//或者时间延迟>30s
 				unlock_page(page);//先解锁
 				printk("fsync wait for flush!\n");	
 				flush_urgent(sbi);
-				printk("fsync finish!!!\n");	
+				printk("fsync finish!!!\n");//没有完成，WHY？？？
+	
 				flushed=1;
 				mutex_unlock(&sbi->alloc_lock);//定时线程没有释放
+				printk("__write_data_page： inode=%d index=%d\n",page->mapping->host->i_ino, page->index);
+				continue;
 			}
+			mutex_unlock(&sbi->alloc_lock);
 			//将page加入等待队列中
-			
-				
-			if(flushed){
+			/*if(flushed){
 				mutex_lock(&sbi->alloc_lock);
 				flushed=1;
 			}
-			mutex_unlock(&sbi->alloc_lock);
+			mutex_unlock(&sbi->alloc_lock);*/
 			printk("__write_data_page： inode=%d index=%d\n",page->mapping->host->i_ino, page->index);
 			ret=0;
 			if (unlikely(ret)) {
@@ -1965,14 +1961,14 @@ continue_unlock:
 			/* give a priority to WB_SYNC threads */
 			if ((atomic_read(&F2FS_M_SB(mapping)->wb_sync_req) ||
 					--nr_write <= 0) && //--wbc->nr_to_write <= 0)
-					wbc->sync_mode == WB_SYNC_NONE) {//fsync不可能
+					wbc->sync_mode == WB_SYNC_NONE) {//fsync不可能进入
 				done = 1;
 				break;
 			}
 		}
 		//晚一点释放页表的页
 		//pagevec_release(&pvec);
-		cond_resched();
+		//cond_resched();
 	}
 	if (!cycled && !done) {
 		cycled = 1;
