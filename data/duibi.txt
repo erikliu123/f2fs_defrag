@@ -1,13 +1,23 @@
 #没有改之前的F2FS
-/mnt/hdd/sync100m fragments=16
+fd=3
+/mnt/hdd/sync100m fragments=823
+fd=3
 /mnt/hdd/sync1m fragments=250
+fd=3
 /mnt/hdd/sync1m2 fragments=256
-/mnt/hdd/sync20m1 fragments=644
-/mnt/hdd/sync20m2 fragments=641
+fd=3
+/mnt/hdd/sync20m1 fragments=643
+fd=3
+/mnt/hdd/sync20m2 fragments=645
+fd=3
 /mnt/hdd/sync20m4k fragments=5115
+fd=3
 /mnt/hdd/sync2m1 fragments=256
+fd=3
 /mnt/hdd/sync2m2 fragments=256
+fd=3
 /mnt/hdd/sync50m fragments=5115
+
 
 #after
 peter@potter-PC:~/Desktop/f2fs/data$ ./frag /mnt/hdd/fsync/*

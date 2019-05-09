@@ -472,7 +472,7 @@ void f2fs_balance_fs(struct f2fs_sb_info *sbi, bool need)
 	}
 }
 
-void f2fs_balance_fs_bg(struct f2fs_sb_info *sbi)
+void f2fs_balance_fs_bg(struct f2fs_sb_info *sbi)//目录为脏时， fsync路经sync_dirty_inodes
 {
 	/* try to shrink extent cache when there is no enough memory */
 	if (!available_free_memory(sbi, EXTENT_CACHE))
@@ -496,7 +496,7 @@ void f2fs_balance_fs_bg(struct f2fs_sb_info *sbi)
 			excess_prefree_segs(sbi) ||
 			excess_dirty_nats(sbi) ||
 			f2fs_time_over(sbi, CP_TIME)) {
-		if (test_opt(sbi, DATA_FLUSH)) {
+		if (test_opt(sbi, DATA_FLUSH)) {//没有打开FLUSH，所以不会下刷
 			struct blk_plug plug;
 
 			blk_start_plug(&plug);

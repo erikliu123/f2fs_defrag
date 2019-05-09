@@ -959,7 +959,7 @@ retry:
 		if (is_dir)
 			F2FS_I(inode)->cp_task = current;
 
-		filemap_fdatawrite(inode->i_mapping);
+		filemap_fdatawrite(inode->i_mapping);//BUG经过此处
 
 		if (is_dir)
 			F2FS_I(inode)->cp_task = NULL;
@@ -1048,7 +1048,7 @@ retry_flush_dents:
 	/* write all the dirty dentry pages */
 	if (get_pages(sbi, F2FS_DIRTY_DENTS)) {
 		f2fs_unlock_all(sbi);
-		err = sync_dirty_inodes(sbi, DIR_INODE);
+		err = sync_dirty_inodes(sbi, DIR_INODE);//==> filemap_fdatawrite+0x1f/0x30
 		if (err)
 			goto out;
 		cond_resched();
@@ -1367,7 +1367,7 @@ int write_checkpoint(struct f2fs_sb_info *sbi, struct cp_control *cpc)
 
 	trace_f2fs_write_checkpoint(sbi->sb, cpc->reason, "start block_ops");
 
-	err = block_operations(sbi);
+	err = block_operations(sbi);//下发脏inode的页
 	if (err)
 		goto out;
 

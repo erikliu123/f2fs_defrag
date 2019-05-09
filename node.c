@@ -1700,7 +1700,7 @@ int wait_on_node_pages_writeback(struct f2fs_sb_info *sbi, nid_t ino)
 }
 
 static int f2fs_write_node_pages(struct address_space *mapping,
-			    struct writeback_control *wbc)
+			    struct writeback_control *wbc)//inode下发
 {
 	struct f2fs_sb_info *sbi = F2FS_M_SB(mapping);
 	struct blk_plug plug;

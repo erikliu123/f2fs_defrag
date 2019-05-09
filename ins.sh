@@ -3,7 +3,7 @@
 #make clean
 #echo -n "Enter your choice:"   #参数-n的作用是不换行，echo默认是换行
 
-choice="active_logs=6,nodiscard,nobarrier,noflush_merge"
+choice="active_logs=2,nodiscard,nobarrier,noflush_merge"
 if [ $# -ne 2 ]; then
 	echo "输入选项 [intsall | remove | mount] [设备]"
 	exit

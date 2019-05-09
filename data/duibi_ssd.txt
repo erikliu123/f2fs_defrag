@@ -50,5 +50,16 @@ fd=3
 fd=3
 /mnt/ssd/test2/sync50m fragments=5115
 
+#实验4 LOG=2修改后
+/mnt/ssd/sync100m fragments=76
+/mnt/ssd/sync1m fragments=29
+/mnt/ssd/sync1m2 fragments=30
+/mnt/ssd/sync20m1 fragments=66
+/mnt/ssd/sync20m2 fragments=67
+/mnt/ssd/sync20m4k fragments=268
+/mnt/ssd/sync2m1 fragments=30
+/mnt/ssd/sync2m2 fragments=30
+/mnt/ssd/sync50m fragments=267
+
 
 
